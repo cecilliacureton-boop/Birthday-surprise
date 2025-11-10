@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A Special Surprise Awaits!</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Three.js for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Load Google Fonts: Playfair Display for headings -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+    <style>
+        :root { --primary-color:#333333; --accent-color:#AAAAAA; --background-color:#111827; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            background-image: radial-gradient(at 0% 0%, rgba(200,200,200,.1), transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(50,50,50,.4), transparent 50%);
+            overflow-x: hidden;
+        }
+        .playfair { font-family: 'Playfair Display', serif; }
+        #three-canvas { display:block; touch-action:none; }
+        #confetti-container { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:hidden; z-index:100; }
+        .confetti-piece { position:absolute; width:10px; height:10px; opacity:0; animation:fall 3s ease-in forwards; }
+        @keyframes fall { 0%{ transform:translateY(-100vh) rotateZ(0); opacity:1;} 100%{ transform:translateY(100vh) rotateZ(1080deg); opacity:0;} }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="confetti-container"></div>
+
+    <main class="w-full max-w-2xl bg-white bg-opacity-95 backdrop-blur-sm shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-3xl p-6 md:p-10 text-center relative">
+        <div id="pre-reveal-content" class="space-y-6">
+            <h1 class="text-4xl md:text-5xl playfair text-gray-900 font-bold">A Special Surprise Awaits!</h1>
+            <p class="text-lg text-gray-700 mb-6">Drag to explore the mystery gift, then click 'Open' when you're ready!</p>
+            <div id="canvas-container" class="w-full aspect-square max-w-sm mx-auto rounded-xl overflow-hidden shadow-2xl bg-gray-200">
+                <canvas id="three-canvas"></canvas>
+            </div>
+            <button id="reveal-button" class="mt-8 px-12 py-4 text-xl font-bold rounded-full bg-gray-800 text-white shadow-lg shadow-gray-600/50 hover:bg-black transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 ring-gray-400">
+                Open Gift Box!
+            </button>
+        </div>
+
+        <div id="post-reveal-content" class="hidden space-y-8">
+            <h1 class="text-5xl md:text-6xl playfair text-gray-900 font-extrabold animate-pulse">Happy Birthday, Reshma!</h1>
+            <p class="text-xl md:text-2xl text-gray-700">To the one who makes every moment magic.</p>
+            <div class="w-full mx-auto max-w-sm rounded-xl overflow-hidden shadow-xl border-4 border-gray-500 transform transition duration-500 hover:scale-[1.02]">
+                <a href="https://ibb.co/gb8Z42dG" target="_blank" rel="noopener noreferrer">
+                    <img src="https://i.ibb.co/gb8Z42dG/Whats-App-Image-2025-11-10-at-19-48-35-fb97064f.jpg" alt="Reshma's Birthday Photo" class="w-full h-auto object-cover" />
+                </a>
+            </div>
+            <div class="text-left bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
+                <p class="text-lg text-slate-700 leading-relaxed italic">
+                    My dearest love, this 3D box holds a simple truth: my world revolves around you, just like you can spin this little gift! Every day with you is the greatest present. Thank you for your kindness, your brilliance, and your endless love. I am the luckiest person alive. Let's make this the best year yet!
+                </p>
+                <div class="mt-4 border-t pt-4 text-right">
+                    <span class="text-base font-semibold text-gray-800">— All my love, always.</span>
+                </div>\n            </div>
+            <p class="text-3xl playfair font-bold text-gray-900">I Love You More Than Words! ❤️</p>
+        </div>
+    </main>
+
+    <footer class="mt-8 text-center text-sm text-white text-opacity-70"><p>Built with Three.js and all my heart.</p></footer>
+
+    <script>
+        const revealButton = document.getElementById('reveal-button');
+        const preRevealContent = document.getElementById('pre-reveal-content');
+        const postRevealContent = document.getElementById('post-reveal-content');
+        const canvasContainer = document.getElementById('canvas-container');
+        const confettiContainer = document.getElementById('confetti-container');
+        const canvas = document.getElementById('three-canvas');
+
+        let scene, camera, renderer, giftBox;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let animationFrameId;
+
+        const BOX_SIZE = 2;
+        const RIBBON_COLOR = 0xfaac15;
+        const BOX_COLOR = 0xec4899;
+
+        function initThreeScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdddddd);
+            const aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.z = 4;
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 5, 5).normalize();
+            scene.add(directionalLight);
+
+            giftBox = new THREE.Group();
+            const boxMaterial = new THREE.MeshLambertMaterial({ color: BOX_COLOR });
+            const boxGeometry = new THREE.BoxGeometry(BOX_SIZE, BOX_SIZE - 0.5, BOX_SIZE);
+            const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+            boxMesh.position.y = -0.25;
+            giftBox.add(boxMesh);
+
+            const lidGeometry = new THREE.BoxGeometry(BOX_SIZE + 0.1, 0.5, BOX_SIZE + 0.1);
+            const lidMesh = new THREE.Mesh(lidGeometry, boxMaterial);
+            lidMesh.position.y = (BOX_SIZE - 0.5) / 2;
+            giftBox.add(lidMesh);
+
+            const ribbonVerticalGeometry = new THREE.BoxGeometry(0.2, BOX_SIZE + 0.1, BOX_SIZE + 0.1);
+            const ribbonMaterial = new THREE.MeshLambertMaterial({ color: RIBBON_COLOR });
+            const ribbonVertical = new THREE.Mesh(ribbonVerticalGeometry, ribbonMaterial);
+            giftBox.add(ribbonVertical);
+
+            const ribbonHorizontalGeometry = new THREE.BoxGeometry(BOX_SIZE + 0.1, BOX_SIZE + 0.1, 0.2);
+            const ribbonHorizontal = new THREE.Mesh(ribbonHorizontalGeometry, ribbonMaterial);
+            giftBox.add(ribbonHorizontal);
+
+            scene.add(giftBox);
+
+            window.addEventListener('resize', onWindowResize, false);
+            onWindowResize();
+        }
+
+        function onWindowResize() {
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+            camera.aspect = containerWidth / containerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(containerWidth, containerHeight);
+        }
+
+        function handleMouseDown(e) {
+            e.preventDefault();
+            isDragging = true;
+            previousMousePosition.x = e.clientX;
+            previousMousePosition.y = e.clientY;
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !giftBox) return;
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+            giftBox.rotation.y += deltaX * 0.005;
+            giftBox.rotation.x += deltaY * 0.005;
+            previousMousePosition.x = e.clientX;
+            previousMousePosition.y = e.clientY;
+        }
+
+        function handleMouseUp() { isDragging = false; }
+
+        canvas.addEventListener('mousedown', handleMouseDown, false);
+        canvas.addEventListener('mousemove', handleMouseMove, false);
+        canvas.addEventListener('mouseup', handleMouseUp, false);
+        canvas.addEventListener('mouseleave', handleMouseUp, false);
+
+        // Touch-safe handlers
+        canvas.addEventListener('touchstart', (e) => {
+            if (!e.touches || e.touches.length === 0) return;
+            isDragging = true;
+            previousMousePosition.x = e.touches[0].clientX;
+            previousMousePosition.y = e.touches[0].clientY;
+        }, { passive: true });
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging || !giftBox || !e.touches || e.touches.length === 0) return;
+            const t = e.touches[0];
+            const deltaX = t.clientX - previousMousePosition.x;
+            const deltaY = t.clientY - previousMousePosition.y;
+            giftBox.rotation.y += deltaX * 0.005;
+            giftBox.rotation.x += deltaY * 0.005;
+            previousMousePosition.x = t.clientX;
+            previousMousePosition.y = t.clientY;
+        }, { passive: true });
+        canvas.addEventListener('touchend', handleMouseUp, false);
+
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+            if (!isDragging && giftBox) giftBox.rotation.y += 0.005;
+            renderer.render(scene, camera);
+        }
+
+        function launchConfetti() {
+            const colors = ['#FACC15', '#EC4899', '#FFFFFF', '#F9A8D4', '#FCD34D'];
+            const count = 150, maxDuration = 5;
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                piece.classList.add('confetti-piece');
+                const size = Math.random() * 10 + 5;
+                piece.style.width = `${size}px`;
+                piece.style.height = `${size}px`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.animationDelay = `${Math.random() * 0.5}s`;
+                piece.style.animationDuration = `${Math.random() * maxDuration + 1.5}s`;
+                confettiContainer.appendChild(piece);
+            }
+            setTimeout(() => { confettiContainer.innerHTML = ''; }, (maxDuration + 1) * 1000);
+        }
+
+        revealButton.addEventListener('click', () => {
+            cancelAnimationFrame(animationFrameId);
+            canvasContainer.classList.add('hidden');
+            revealButton.classList.add('hidden');
+            launchConfetti();
+            setTimeout(() => {
+                preRevealContent.classList.add('hidden');
+                postRevealContent.classList.remove('hidden');
+            }, 100);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        window.onload = () => { initThreeScene(); animate(); };
+    </script>
+</body>
+</html>
